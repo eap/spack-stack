@@ -1,0 +1,45 @@
+# Run the https://github.com/ebrevdo/ifttt-lint "IfChange" linter.
+# This linter allows the blocks of code to be annotated in such a way that
+# changes to the code requires a change elsewhere in the codebase.
+#
+# Example:
+# ```
+#     # LINT.IfChange
+#     SOMEVAR = 1
+#     # LINT.ThenChange('path/to/somefile.py')
+# ```
+
+name: IfChange Lint
+
+on:
+  pull_request:
+    branches:
+    - develop
+    paths:
+      - 'configs/**'
+      - 'util/**'
+      - '!**/*.md'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0      # Fetch full history for merge-base
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "23"  # or your preferred version
+      - name: Install IFTT-lint
+        run: npm install -g ifttt-lint
+      - name: Validate lint pragmas
+        run: ifttt-lint --verbose --scan .
+      - name: Compute diff from common ancestor
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          MERGE_BASE=$(git merge-base HEAD $BASE_SHA)
+          git diff $MERGE_BASE HEAD > changes.diff
+      - name: Run IFTTT Lint
+        run: npx ifttt-lint -i '**/*.md' changes.diff
